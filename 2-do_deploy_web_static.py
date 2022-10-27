@@ -1,83 +1,81 @@
 #!/usr/bin/python3
-"""
-Distributes archived pack to both web servers
-Usage:
-    fab -f 2-do_deploy_web_static.py do_deploy:
-    archive_path=versions/<file_name> -i my_ssh_private_key
-Example:
-    fab -f 2-do_deploy_web_static.py do_deploy:
-    archive_path=versions/web_static_20170315003959.tgz -i my_ssh_private_key
-"""
+"""Create a folder if not exists and create a tgz
+file with the local command execution with fabric"""
 
-import os.path
-from fabric.api import env, put, run
+from datetime import datetime
+from fabric.api import *
+import os
 
-env.user = "ubuntu"
-env.hosts = ["34.75.10.160", "35.231.86.187"]
+env.hosts = ['35.237.103.2', '18.209.63.81']
+
+
+def do_pack():
+    """Create the folder and the tgz"""
+    try:
+        with hide('running'):
+            local("mkdir -p ./versions")
+
+        date = datetime.now()
+        adt = date.strftime("%Y%m%d%H%M%S")
+
+        command = "tar -cvzf versions/web_static_{}.tgz web_static".format(adt)
+        path = "versions/web_static_{}.tgz".format(adt)
+        message = "Packing web_static to {}".format(path)
+
+        print(message)
+        local(command)
+
+        with hide('running'):
+            size = local('wc -c < {}'.format(path), capture=True)
+
+        f_msg = "web_static packed: {} -> {}Bytes".format(path, size)
+
+        with hide('running'):
+            local("chmod 664 {}".format(path))
+
+        print(f_msg)
+
+        return path
+    except:
+        return None
 
 
 def do_deploy(archive_path):
-    """Distributes an archive to a web server.
-       Returns True if successful and false if not
-    """
-    if os.path.isfile(archive_path) is False:
-        return False
-    fullFile = archive_path.split("/")[-1]
-    folder = fullFile.split(".")[0]
-
-    # Uploads archive to /tmp/ directory
-    if put(archive_path, "/tmp/{}".format(fullFile)).failed is True:
-        print("Uploading archive to /tmp/ failed")
+    """Run commands to remotly, pass a file and uncompress it"""
+    if not os.path.isfile(archive_path):
         return False
 
-    # Delete the archive folder on the server
-    if run("rm -rf /data/web_static/releases/{}/".
-           format(folder)).failed is True:
-        print("Deleting folder with archive(if already exists) failed")
-        return False
+    name = archive_path
+    name = name.replace("/", " ")
+    name = name.split()
+    file_ext = name[-1]
+    fname, exten = os.path.splitext(file_ext)
 
-    # Create a new archive folder
-    if run("mkdir -p /data/web_static/releases/{}/".
-           format(folder)).failed is True:
-        print("Creating new archive folder failed")
-        return False
+    tar1 = "sudo tar -xzf /tmp/{} -C ".format(file_ext)
+    tar2 = "/data/web_static/releases/{}/".format(fname)
+    f_tar = tar1 + tar2
 
-    # Uncompress archive to /data/web_static/current/ directory
-    if run("tar -xzf /tmp/{} -C /data/web_static/releases/{}/".
-           format(fullFile, folder)).failed is True:
-        print("Uncompressing archive to failed")
-        return False
+    mv1 = "sudo mv /data/web_static/releases/{}/web_static/* ".format(fname)
+    mv2 = "/data/web_static/releases/{}/".format(fname)
+    f_mv = mv1 + mv2
 
-    # Deletes latest archive from the server
-    if run("rm /tmp/{}".format(fullFile)).failed is True:
-        print("Deleting archive from /tmp/ directory dailed")
-        return False
+    ln = "sudo ln -s /data/web_static/releases/{}/ ".format(fname)
+    f_ln = ln + "/data/web_static/current"
 
-    # Move folder from web_static to its parent folder,to expose the index
-    # files outsite the /we_static path
-    if run("mv /data/web_static/releases/{}/web_static/* "
-           "/data/web_static/releases/{}/".
-           format(folder, folder)).failed is True:
-        print("Moving content to archive folder before deletion failed")
-        return False
+    try:
+        put(archive_path, "/tmp/")
+        run("sudo mkdir -p /data/web_static/releases/{}/".format(fname))
+        run(f_tar)
+        run("sudo rm /tmp/{}".format(file_ext))
+        run(f_mv)
+        run("sudo rm -rf /data/web_static/releases/{}/web_static".
+            format(fname))
+        run("sudo rm -rf /data/web_static/current")
+        run(f_ln)
 
-    # Delete the empty web_static file, as its content have been moved to
-    # its parent directory
-    if run("rm -rf /data/web_static/releases/{}/web_static".
-           format(folder)).failed is True:
-        print("Deleting web_static folder failed")
-        return False
+        print("New version deployed!")
+        return True
 
-    # Delete current folder being served (the symbolic link)
-    if run("rm -rf /data/web_static/current").failed is True:
-        print("Deleting 'current' folder failed")
-        return False
+    except:
 
-    # Create new symbolic link on web server linked to new code version
-    if run("ln -s /data/web_static/releases/{}/ /data/web_static/current".
-           format(folder)).failed is True:
-        print("Creating new symbolic link to new code version failed")
         return False
-
-    print("New version deployed!")
-    return True
