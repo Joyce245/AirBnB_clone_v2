@@ -43,29 +43,12 @@ class HBNBCommand(cmd.Cmd):
                 raise SyntaxError()
             my_list = line.split(" ")
             obj = eval("{}()".format(my_list[0]))
-            dic = {}
-            for param in range(1, len(my_list)):
-                # Separete the values and parameters between
-                my_list[param] = my_list[param].replace("=", " ")
-                # Take the first param
-                attr = my_list[param].split()
-                # Replace all '_' of the value to spaces and escape
-                # each quote with '\'
-                attr[1] = attr[1].replace("_", " ")
-                try:
-                    # set de attr in the correct type
-                    var = eval(attr[1])
-                    attr[1] = var
-                except:
-                    pass
-                # Verificate that have just one value for each param
-                if type(attr[1]) is not tuple:
-                    dic[attr[0]] = attr[1]
-            if dic:
-                obj = eval("{}(**dic)".format(my_list[0]))
-            else:
-                obj = eval("{}()".format(my_list[0]))
-
+            # Params
+            my_params = my_list[1:]
+            for i in my_params:
+                split_param = i.split("=")
+                to_rep = split_param[1].replace("_", " ")
+                obj.__dict__[split_param[0]] = to_rep
             obj.save()
             print("{}".format(obj.id))
         except SyntaxError:

@@ -1,81 +1,50 @@
 #!/usr/bin/python3
-"""Create a folder if not exists and create a tgz
-file with the local command execution with fabric"""
-
+"""Fab script"""
+import os
 from datetime import datetime
 from fabric.api import *
-import os
 
-env.hosts = ['35.237.103.2', '18.209.63.81']
+env.hosts = ["34.73.5.42", " 34.73.70.108"]
+env.user = "ubuntu"
+env.key_filename = "~/.ssh/holberton"
+env.warn_only = True
 
 
 def do_pack():
-    """Create the folder and the tgz"""
-    try:
-        with hide('running'):
-            local("mkdir -p ./versions")
-
-        date = datetime.now()
-        adt = date.strftime("%Y%m%d%H%M%S")
-
-        command = "tar -cvzf versions/web_static_{}.tgz web_static".format(adt)
-        path = "versions/web_static_{}.tgz".format(adt)
-        message = "Packing web_static to {}".format(path)
-
-        print(message)
-        local(command)
-
-        with hide('running'):
-            size = local('wc -c < {}'.format(path), capture=True)
-
-        f_msg = "web_static packed: {} -> {}Bytes".format(path, size)
-
-        with hide('running'):
-            local("chmod 664 {}".format(path))
-
-        print(f_msg)
-
-        return path
-    except:
+    """Packs web_static into tgz"""
+    current_time = datetime.now().strftime("%Y%m%d%H%M%S")
+    file_path = "versions/web_static_" + current_time + ".tgz"
+    local("mkdir -p versions")
+    local("tar -cvzf " + file_path + " web_static")
+    if os.path.exists(file_path):
+        return file_path
+    else:
         return None
 
 
 def do_deploy(archive_path):
-    """Run commands to remotly, pass a file and uncompress it"""
-    if not os.path.isfile(archive_path):
+    """Deploys archive to web servers"""
+    if not os.path.exists(archive_path) and not os.path.isfile(archive_path):
         return False
 
-    name = archive_path
-    name = name.replace("/", " ")
-    name = name.split()
-    file_ext = name[-1]
-    fname, exten = os.path.splitext(file_ext)
-
-    tar1 = "sudo tar -xzf /tmp/{} -C ".format(file_ext)
-    tar2 = "/data/web_static/releases/{}/".format(fname)
-    f_tar = tar1 + tar2
-
-    mv1 = "sudo mv /data/web_static/releases/{}/web_static/* ".format(fname)
-    mv2 = "/data/web_static/releases/{}/".format(fname)
-    f_mv = mv1 + mv2
-
-    ln = "sudo ln -s /data/web_static/releases/{}/ ".format(fname)
-    f_ln = ln + "/data/web_static/current"
+    temp = archive_path.split('/')
+    temp0 = temp[1].split(".")
+    f = temp0[0]
 
     try:
-        put(archive_path, "/tmp/")
-        run("sudo mkdir -p /data/web_static/releases/{}/".format(fname))
-        run(f_tar)
-        run("sudo rm /tmp/{}".format(file_ext))
-        run(f_mv)
-        run("sudo rm -rf /data/web_static/releases/{}/web_static".
-            format(fname))
+        put(archive_path, '/tmp')
+        run("sudo mkdir -p /data/web_static/releases/" + f + "/")
+        run("sudo tar -xzf /tmp/" + f + ".tgz" +
+            " -C /data/web_static/releases/" + f + "/")
+        run("sudo rm /tmp/" + f + ".tgz")
+        run("sudo mv /data/web_static/releases/" + f +
+            "/web_static/* /data/web_static/releases/" + f + "/")
+        run("sudo rm -rf /data/web_static/releases/" + f + "/web_static")
         run("sudo rm -rf /data/web_static/current")
-        run(f_ln)
-
-        print("New version deployed!")
+        run("sudo ln -s /data/web_static/releases/" + f +
+            "/ /data/web_static/current")
         return True
-
     except:
-
         return False
+
+    return True

@@ -1,36 +1,33 @@
 #!/usr/bin/python3
-from flask import Flask, escape
-"""Put a default value in a varible"""
+"""Flask"""
+from flask import Flask
 app = Flask(__name__)
-app.url_map.strict_slashes = False
 
 
-@app.route('/')
-def hello_world():
-    """Return a str"""
-    return 'Hello HBNB!'
+@app.route('/', strict_slashes=False)
+def hello_route():
+    """hello_route"""
+    return "Hello HBNB!"
 
 
-@app.route('/hbnb')
-def HBNB():
-    """Return str"""
-    return 'HBNB'
+@app.route('/hbnb', strict_slashes=False)
+def hbnb():
+    """hbnb"""
+    return "HBNB"
 
 
-@app.route('/c/<text>')
-def TEXT(text):
-    """Return str"""
-    text = str(text).replace("_", " ")
-    return 'C {}'.format(escape(text))
+@app.route('/c/<text>', strict_slashes=False)
+def c_route(text):
+    """c_route"""
+    return "C {}".format(text.replace("_", " "))
 
 
-@app.route('/python/<text>')
-@app.route('/python')
-@app.route('/python/')
-def is_cool(text='is cool'):
-    """Put difetrent routes"""
-    text = str(text).replace("_", " ")
-    return 'Python {}'.format(escape(text))
+@app.route('/python', strict_slashes=False)
+@app.route('/python/<text>', strict_slashes=False)
+def python_route(text="is cool"):
+    """python_route"""
+    return "Python {}".format(text.replace("_", " "))
+
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port="5000", debug=True)
+    app.run()
